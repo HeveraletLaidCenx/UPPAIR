@@ -249,8 +249,6 @@ def try_get__dict__from__downloaded_file(file_name, str__URL):
 
   path__file = os.path.join(PATH_STORAGE, f"{file_name}.tar.gz")
 
-  dir__extracted = os.path.join(PATH_STORAGE, f"{file_name}")
-
   # if cache exists and loaded
   if os.path.exists(path__json):
     if if__using_cache == None: # only ask once if using cache
@@ -267,79 +265,75 @@ def try_get__dict__from__downloaded_file(file_name, str__URL):
     download__file_from__URL(str__URL, path__file)
 
   if os.path.exists(path__file):
-    if if__using_cache:
-      # check if the .tar.gz file has been extracted
-      if not os.path.exists(dir__extracted):
-        # extract .tar.gz file
-        with tarfile.open(path__file, "r:gz") as f:
-          f.extractall(dir__extracted)
-        success(f"R package extracted:\n  {dir__extracted}")
-      
-      # check if it is directory
-      if os.path.isdir(dir__extracted):
-        # listdir
-        list__files = os.listdir(dir__extracted)
-        # check if DESCRIPTION exists
-        if "DESCRIPTION" in list__files:
-          path__description = os.path.join(dir__extracted, "DESCRIPTION")
+    try:
+      with tarfile.open(path__file, "r:gz") as tar:
+        members = tar.getmembers()
+
+        if__DESCRIPTION_exists = any("DESCRIPTION" == member.name for member in members)
+
+        if if__DESCRIPTION_exists == False:
+          path__DESCRIPTION = os.path.join(tar.getmembers()[0].name, "DESCRIPTION")
         else:
-          path__description = os.path.join(dir__extracted, f"{list__files[0]}/DESCRIPTION")
+          path__DESCRIPTION = "DESCRIPTION"
 
-        # check if DESCRIPTION exists
-        if os.path.exists(path__description):
-          print(f"R package DESCRIPTION found:\n  {path__description}")
-          with open(path__description, "r") as f:
-            str__content = f.read()
-          list__dependencies_raw = RE["DESCRIPTION__DEPENDENCIES"].findall(str__content)
-          list__imports_raw = RE["DESCRIPTION__IMPORTS"].findall(str__content)
-          list__links_raw = RE["DESCRIPTION__LINKS"].findall(str__content)
+        with tar.extractfile(path__DESCRIPTION) as f:
+          str__content = f.read().decode("utf-8")
+      
+      success(f"R package DESCRIPTION found:\n  {path__file}")
+    except Exception as e:
+      error(f"failed to extract DESCRIPTION from {path__file}:\n  {e}")
+      return {}
 
-          list__dependencies = []
-          list__imports = []
-          list__links = []
+    list__dependencies_raw = RE["DESCRIPTION__DEPENDENCIES"].findall(str__content)
+    list__imports_raw = RE["DESCRIPTION__IMPORTS"].findall(str__content)
+    list__links_raw = RE["DESCRIPTION__LINKS"].findall(str__content)
 
-          if len(list__dependencies_raw) > 0:
-            list__dependencies = list__dependencies_raw[0].split(",")
-          if len(list__imports_raw) > 0:
-            list__imports = list__imports_raw[0].split(",")
-          if len(list__links_raw) > 0:
-              list__links = list__links_raw[0].split(",")
+    list__dependencies = []
+    list__imports = []
+    list__links = []
 
-          dict__content = {
-            "version": None,
-            "date": None,
-            "limitation_of_R_version": None,
-            "dependencies": [],
-            "imports": [],
-            "links": []
-          }
+    if len(list__dependencies_raw) > 0:
+      list__dependencies = list__dependencies_raw[0].split(",")
+    if len(list__imports_raw) > 0:
+      list__imports = list__imports_raw[0].split(",")
+    if len(list__links_raw) > 0:
+        list__links = list__links_raw[0].split(",")
 
-          for str__dependency in list__dependencies:
-            str__dependency = str__dependency.strip()
+    dict__content = {
+      "version": None,
+      "date": None,
+      "limitation_of_R_version": None,
+      "dependencies": [],
+      "imports": [],
+      "links": []
+    }
 
-            dependency_R_version = RE["LATEST_META__DEPENDENCY_R"].findall(str__dependency)
-            if len(dependency_R_version) > 0:
-              version_R = dependency_R_version[0]
-              # print(f"dependency R version detected: {version_R}")
-              dict__content["limitation_of_R_version"] = version_R
-              continue
+    for str__dependency in list__dependencies:
+      str__dependency = str__dependency.strip()
 
-            dict__content["dependencies"].append(str__dependency)
-          for str__import in list__imports:
-            str__import = str__import.strip()
-            dict__content["imports"].append(str__import)
-          for str__link in list__links:
-            str__link = str__link.strip()
-            dict__content["links"].append(str__link)
+      dependency_R_version = RE["LATEST_META__DEPENDENCY_R"].findall(str__dependency)
+      if len(dependency_R_version) > 0:
+        version_R = dependency_R_version[0]
+        # print(f"dependency R version detected: {version_R}")
+        dict__content["limitation_of_R_version"] = version_R
+        continue
 
-          success(f"cache loaded:\n  {path__json}")
+      dict__content["dependencies"].append(str__dependency)
+    for str__import in list__imports:
+      str__import = str__import.strip()
+      dict__content["imports"].append(str__import)
+    for str__link in list__links:
+      str__link = str__link.strip()
+      dict__content["links"].append(str__link)
 
-          save__file(path__json, json.dumps(dict__content, ensure_ascii=False, indent=2))
+    success(f"cache loaded:\n  {path__json}")
 
-          return dict__content
-      else:
-        error(f"R package's path is not a directory: {dir__extracted}")
-        exit(1)
+    save__file(path__json, json.dumps(dict__content, ensure_ascii=False, indent=2))
+
+    return dict__content
+  else:
+    error(f"seems R package download failed: {path__file}")
+    exit(1)
 
 def parse__latest_package_metadata(str__HTML):
   print("parse latest package metadata...")
