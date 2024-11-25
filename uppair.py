@@ -656,7 +656,11 @@ def find__package__and__parse__dpendencies(package_name, str__version_target=Non
         )
   else:
     error(f"'{package_name}' @ {str__version_target} not found")
-    list__error_packages.append(f"{package_name}@{str__version_target} date_before:{str__date_before} as dependency of:{dict__parent}")
+    list__error_packages.append({
+      "package_name": package_name,
+      "version_target": str__version_target,
+      "date_before": str__date_before
+    })
 
 def command__tree(list_str__package_name__and__version):
   global dict__dependencies_tree
@@ -678,16 +682,83 @@ def command__tree(list_str__package_name__and__version):
 
   if len(list__error_packages) > 0:
     error("but with some packages not found:")
-    print(f"  {'\n  '.join(list__error_packages)}")
+    print(f"  {list__error_packages}")
     save__file(os.path.join(PATH_CACHE, f"{formatted_date__when_start}_error_packages.json"), json.dumps(list__error_packages, ensure_ascii=False, indent=2))
 
-  return dict__dependencies_tree
+  # sort out packages and order to install
+  
+  def organize_dict(dict__nested):
+    list__result = []
+    def append__packages__in(dict, int__level=0):
+      if len(dict) > 0:
+        for key in dict:
+          list__result.append((int__level, key, dict[key]["version"], dict[key]["date"]))
+          if "dependencies" in dict[key]:
+            if len(dict[key]["dependencies"]) > 0:
+              append__packages__in(dict[key]["dependencies"], int__level + 1)
+    append__packages__in(dict__nested)
+    sorted_result = sorted(list__result, key=lambda x: x[0], reverse=True)
+  
+    dict__final = {}
+
+    for tmp in sorted_result:
+      if tmp[1] not in dict__final:
+        dict__final[tmp[1]] = {
+          "priority": tmp[0],
+          "version": tmp[2],
+          "date": tmp[3]
+        }
+      else:
+        tmp_priority = tmp[0]
+        if tmp_priority > dict__final[tmp[1]]["priority"]:
+          dict__final[tmp[1]]["priority"] = tmp_priority
+        
+        tmp_version = tmp[2]
+        tmp_date = tmp[3]
+        date__tmp = datetime.strptime(tmp_date, "%Y-%m-%d")
+        date__final = datetime.strptime(dict__final[tmp[1]]["date"], "%Y-%m-%d")
+        if date__tmp < date__final:
+          dict__final[tmp[1]]["version"] = tmp_version
+          dict__final[tmp[1]]["date"] = tmp_date
+
+    return dict__final
+
+  dict__final = organize_dict(dict__dependencies_tree)
+  save__file(os.path.join(PATH_CACHE, f"dependencies_tree_final_{formatted_date__when_start}.json"), json.dumps(dict__final, ensure_ascii=False, indent=2))
+
+  return dict__final
+
+def command__add(list_str__package_name__and__version):
+  dict__dependencies_tree = command__tree(list_str__package_name__and__version)
+
+  # turn dict into list sorted by priority from high to low
+  list__sorted = sorted(dict__dependencies_tree.items(), key=lambda x: x[1]["priority"], reverse=True)
+
+  for element in list__sorted:
+    # print(element)
+    print(f"installing {element[0]} @ {element[1]['version']} ...")
+    
+    path__R_package = os.path.join(PATH_STORAGE, f"{element[0]}_v_{element[1]['version']}.tar.gz")
+    print(f"  from {path__R_package}")
+    
+    list__R_command = [
+      "R",
+      "-e",
+      f"install.packages('{path__R_package}', repos = NULL)"
+    ]
+
+    try:
+      with open("./process.log", "a") as log_file:
+        subprocess.run(list__R_command, check=True, stdout=log_file, stderr=log_file)
+      success("  package installed")
+    except Exception as e:
+      error(f"package installation failed: {e}")
 
 def handle__command_error():
   error("input format can not be parsed")
   print(
     "\nusage:\n" + 
-    "  python ruprai.py [command] [args separated by space]\n" + 
+    "  python uppair.py [command] [args separated by space]\n" + 
     "[command]\n" + 
     "  auto\t| no args needed\t\t| parse ./renv.json , auto install to current R env\n" + 
     "  add\t| [...pack@ver]\t\t\t| add package(s) to current R env\n" + 
@@ -703,7 +774,14 @@ def route__command(command, params):
     pass
   elif command == "add":
     list_str__package_name__and__version = params[1:]
-    # TODO
+    
+    if__task_confirmed = ask__user_confirm(f"confirm task: add R packages: {list_str__package_name__and__version} ?")
+
+    if if__task_confirmed:
+      command__add(list_str__package_name__and__version)
+    else:
+      warning("operation canceled")
+      exit(1)
   elif command == "tree":
     str__R_version = params[0].strip()
     list_str__package_name__and__version = params[1:]
@@ -726,9 +804,10 @@ if __name__ == "__main__":
 
   # handle **arguments input by command line**
   args = sys.argv
-  if len(args) < 2: # `args[0]` is `"ruprai.py"`
+  if len(args) < 2: # `args[0]` is `"uppair.py"`
     handle__command_error()
   route__command(args[1], args[2:])
 
 # test code:
-# python ./ruprai.py tree 4.2.1 NPCD@1.0-11 CDM@7.5-15 GDINA@2.8.8
+# python ./uppair.py tree 4.2.1 NPCD@1.0-11 CDM@7.5-15 GDINA@2.8.8
+# python ./uppair.py add NPCD@1.0-11 CDM@7.5-15 GDINA@2.8.8

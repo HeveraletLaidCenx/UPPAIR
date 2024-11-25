@@ -1,11 +1,14 @@
-# RUPRAI
+# UPPAIR
 
-**R**'s  
+a tool for: 
+
 **U**niversal  
 **P**ackage  
-**R**esolution  
+**P**arsing  
 **A**nd  
-**I**nstallation
+**I**nstallation  
+(for)  
+**R**  
 
 ## why?
 
@@ -31,7 +34,16 @@ the only way I found to achieve such goal is:
     ```
 however, this process may further cause dependency problems, making the installation process painful. 
 
-so I hope there'll be a tool that can handle this process better, which is why RUPRAI born.
+so I hope there'll be a tool that can handle this process better, which is why UPPAIR born.
+
+## known issues
+
+- program design and code organization may need to be optimized
+
+- only command `tree` and `add` are implemented
+
+- no test included
 
 ## how?
 
+...
