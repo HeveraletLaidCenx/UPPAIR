@@ -799,6 +799,11 @@ def route__command(command, params):
   success("all done!")
 
 if __name__ == "__main__":
+  print("checking directories...")
+  os.makedirs(PATH_CACHE, exist_ok=True)
+  os.makedirs(PATH_STORAGE, exist_ok=True)
+  print("directories checked")
+
   formatted_date__when_start = get__fotmatted_date()
   initialize__RE()
 
