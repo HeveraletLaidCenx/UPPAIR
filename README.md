@@ -42,6 +42,8 @@ so I hope there'll be a tool that can handle this process better, which is why U
 
 - **forgot to switch the latest package installation, now only packages from archive will be installed, the packages from latest will throw an error about `ERROR: no packages specified`**
 
+- **some package whose dependencies includes version requirements can not be parsed(e.g. `gtable, rlang, scales, withr` in ggplot2 `Imports: digest, glue, grDevices, grid, gtable (>= 0.1.1), isoband, MASS, mgcv, rlang (>= 0.4.10), scales (>= 0.5.0), stats, tibble, withr (>= 2.0.0)`)**
+
 - program design and code organization may need to be optimized
 
 - only command `tree` and `add` are implemented
