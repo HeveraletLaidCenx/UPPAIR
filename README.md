@@ -38,6 +38,10 @@ so I hope there'll be a tool that can handle this process better, which is why U
 
 ## known issues
 
+- **can not parse which package is a basic package(e.g. `grid`), lead to installation failed**
+
+- **forgot to switch the latest package installation, now only packages from archive will be installed, the packages from latest will throw an error about `ERROR: no packages specified`**
+
 - program design and code organization may need to be optimized
 
 - only command `tree` and `add` are implemented
